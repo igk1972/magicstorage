@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -15,6 +16,17 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	cm "github.com/mholt/certmagic"
+)
+
+const (
+	envNameRegion       = "AWS_REGION"
+	envS3ForcePathStyle = "AWS_S3_FORCE_PATH_STYLE"
+	envNameEndpoint     = "AWS_S3_ENDPOINT"
+	envNameBucket       = "AWS_S3_BUCKET"
+	envNamePath         = "AWS_S3_PATH"
+	envValueRegion      = "us-east-1"
+	envValueBucket      = "caddy"
+	envValuePath        = "certmagic"
 )
 
 const lockFileExists = "Lock file for already exists"
@@ -44,18 +56,35 @@ type S3Storage struct {
 }
 
 // NewS3Storage ...
-func NewS3Storage(bucketName, awsRegion string) (*S3Storage, error) {
+func NewS3Storage() (*S3Storage, error) {
 	cfg := aws.NewConfig()
-	cfg.Region = aws.String(awsRegion)
+	if endpoint := os.Getenv(envNameEndpoint); endpoint != "" {
+		cfg.Endpoint = aws.String(endpoint)
+	}
+	if pathStyle := os.Getenv(envS3ForcePathStyle); pathStyle != "" {
+		cfg.S3ForcePathStyle = aws.Bool(true)
+	}
+	cfg.Region = aws.String(envValueRegion)
+	if region := os.Getenv(envNameRegion); region != "" {
+		cfg.Region = aws.String(region)
+	}
+	var awsBucket = envValueBucket
+	if bucket := os.Getenv(envNameBucket); bucket != "" {
+		awsBucket = bucket
+	}
+	var awsPath = envValuePath
+	if path := os.Getenv(envNamePath); path != "" {
+		awsPath = path
+	}
 	sess, err := session.NewSession(cfg)
 	if err != nil {
 		return &S3Storage{}, err
 	}
 	svc := s3.New(sess)
 	store := &S3Storage{
-		Bucket: aws.String(bucketName),
+		Bucket: aws.String(awsBucket),
 		SVC:    svc,
-		Path:   "certmagic",
+		Path:   awsPath,
 	}
 	return store, nil
 }
