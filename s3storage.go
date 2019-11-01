@@ -93,7 +93,7 @@ func NewS3Storage() (*S3Storage, error) {
 func (s *S3Storage) Exists(key string) bool {
 	_, err := s.SVC.GetObject(&s3.GetObjectInput{
 		Bucket: s.Bucket,
-		Key:    aws.String(key),
+		Key:    aws.String(s.Filename(key)),
 	})
 	if err == nil {
 		return true
@@ -104,10 +104,9 @@ func (s *S3Storage) Exists(key string) bool {
 
 // Store saves value at key.
 func (s *S3Storage) Store(key string, value []byte) error {
-	filename := s.Filename(key)
 	_, err := s.SVC.PutObject(&s3.PutObjectInput{
 		Bucket: s.Bucket,
-		Key:    aws.String(filename),
+		Key:    aws.String(s.Filename(key)),
 		Body:   bytes.NewReader(value),
 	})
 	if err != nil {
@@ -150,17 +149,27 @@ func (s *S3Storage) Delete(key string) error {
 // here to fulfill the interface requirements of the List function
 func (s *S3Storage) List(prefix string, recursive bool) ([]string, error) {
 	var keys []string
-	prefixPath := s.Filename(prefix)
+	var dirs []string
+	prefixWithPath := s.Filename(prefix)
+
 	result, err := s.SVC.ListObjects(&s3.ListObjectsInput{
 		Bucket: s.Bucket,
-		Prefix: aws.String(prefixPath),
+		Prefix: aws.String(prefixWithPath),
 	})
 	if err != nil {
 		return nil, err
 	}
+	pathWithSlash := fmt.Sprintf("%s/", s.Filename(""))
 	for _, k := range result.Contents {
-		if strings.HasPrefix(*k.Key, prefix) {
-			keys = append(keys, *k.Key)
+		key := strings.TrimPrefix(*k.Key, pathWithSlash)
+		if recursive {
+			keys = append(keys, key)
+		} else {
+			partKey := strings.Split(strings.TrimPrefix(key, prefix), "/")[1]
+			if _, matched := find(dirs, partKey); !matched {
+				dirs = append(dirs, partKey)
+				keys = append(keys, filepath.Join(prefix, partKey))
+			}
 		}
 	}
 	return keys, nil
@@ -170,7 +179,7 @@ func (s *S3Storage) List(prefix string, recursive bool) ([]string, error) {
 func (s *S3Storage) Stat(key string) (cm.KeyInfo, error) {
 	result, err := s.SVC.GetObject(&s3.GetObjectInput{
 		Bucket: s.Bucket,
-		Key:    aws.String(key),
+		Key:    aws.String(s.Filename(key)),
 	})
 	if err != nil {
 		return cm.KeyInfo{}, err
@@ -209,7 +218,6 @@ func (s *S3Storage) Lock(key string) error {
 		// lock file already exists
 		info, err := s.Stat(lockFile)
 		switch {
-
 		case s.errNoSuchKey(err):
 			// must have just been removed; try again to create it
 			continue
@@ -260,7 +268,6 @@ func (s *S3Storage) fileLockIsStale(info cm.KeyInfo) bool {
 }
 
 func (s *S3Storage) createLockFile(filename string) error {
-	//lf := s.lockFileName(key)
 	exists := s.Exists(filename)
 	if exists {
 		return fmt.Errorf(lockFileExists)
@@ -298,4 +305,15 @@ func (s *S3Storage) errNoSuchKey(err error) bool {
 		}
 	}
 	return false
+}
+
+// find takes a slice and looks for an element in it. If found it will
+// return it's key, otherwise it will return -1 and a bool of false.
+func find(slice []string, val string) (int, bool) {
+	for i, item := range slice {
+		if item == val {
+			return i, true
+		}
+	}
+	return -1, false
 }
