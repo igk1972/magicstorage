@@ -23,7 +23,9 @@ if err != nil {
 }
 
 certmagic.DNSProvider = dnsProvider
-certmagic.DefaultStorage = magicstorage.NewS3Storage("my-example-s3-bucket", "example-aws-region")
+if var storage, err := magicstorage.NewS3Storage("my-example-s3-bucket", "example-aws-region"); err == nil {
+  certmagic.DefaultStorage = storage
+}
 
 // Then use as normal
 certmagic.HTTPS([]string{"example.com"}, handler)

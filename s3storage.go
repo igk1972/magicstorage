@@ -43,12 +43,12 @@ type S3Storage struct {
 	SVC    s3iface.S3API
 }
 
-func NewS3Storage(bucketName, aws_region string) *S3Storage {
+func NewS3Storage(bucketName, awsRegion string) (*S3Storage, error) {
 	cfg := aws.NewConfig()
-	cfg.Region = aws.String(aws_region)
+	cfg.Region = aws.String(awsRegion)
 	sess, err := session.NewSession(cfg)
 	if err != nil {
-		panic(err)
+		return &S3Storage{}, err
 	}
 	svc := s3.New(sess)
 
@@ -57,8 +57,7 @@ func NewS3Storage(bucketName, aws_region string) *S3Storage {
 		SVC:    svc,
 		Path:   "certmagic",
 	}
-
-	return store
+	return store, nil
 }
 
 // Exists returns true if key exists in s3
