@@ -1,6 +1,7 @@
 package magicstorage
 
 import (
+	"os"
 	"path"
 	"testing"
 	"time"
@@ -9,17 +10,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const testBacket = "s3tlstest"
-const testRegion = "us-east-1"
+const testAwsS3Backet = "s3tlstest"
+const testAwsRegion = "us-east-1"
 
 // these tests needs a running S3 server
 func setupS3Env(t *testing.T) *S3Storage {
 
-	cs, err := NewS3Storage(testBacket, testRegion)
+	os.Setenv("AWS_REGION", testAwsRegion)
+
+	os.Setenv("AWS_ACCESS_KEY_ID", "minioS3caddy")
+	os.Setenv("AWS_SECRET_ACCESS_KEY", "minioS3caddy")
+
+	os.Setenv("AWS_S3_FORCE_PATH_STYLE", "1")
+	os.Setenv("AWS_S3_ENDPOINT", "http://localhost:9000")
+	os.Setenv("AWS_S3_BUCKET", testAwsS3Backet)
+
+	cs, err := NewS3Storage()
 	assert.NoError(t, err)
 
-	// _, err = cs.SVC.DeleteTree
-	// assert.NoError(t, err)
 	return cs
 }
 
@@ -122,7 +130,6 @@ func TestS3Storage_ListNonRecursive(t *testing.T) {
 
 	keys, err := cs.List(path.Join("acme", "example.com", "sites"), false)
 	assert.NoError(t, err)
-
 	assert.Len(t, keys, 1)
 	assert.Contains(t, keys, path.Join("acme", "example.com", "sites", "example.com"))
 }
