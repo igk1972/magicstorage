@@ -1,4 +1,4 @@
-#### S3Storage
+# S3Storage
 
 S3Storage is a storage module to make use of amazon's s3 object storage as a storage interface for CertMagic.  S3Storage
 is an implementation of the Storage interface which can be used to back services behind a load balancer without
@@ -15,7 +15,8 @@ The `NewS3Storage()` function will automatically use credentials from ENV vars, 
 It should not be necessary to provide any explicit credentials.
 
 Used with the certmagic HTTPS command and a dns provider:
-```
+
+```go
 dnsProvider, err := route53.NewDNSProvider()
 if err != nil {
     return err
@@ -24,7 +25,6 @@ if err != nil {
 certmagic.DNSProvider = dnsProvider
 certmagic.DefaultStorage = magicstorage.NewS3Storage("my-example-s3-bucket", "example-aws-region")
 
-//Then use as normal
-
+// Then use as normal
 certmagic.HTTPS([]string{"example.com"}, handler)
 ```
