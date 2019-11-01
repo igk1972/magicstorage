@@ -27,6 +27,7 @@ const staleLockDuration = 2 * time.Hour
 // to check the existence of a lock file
 const fileLockPollInterval = 1 * time.Second
 
+// StorageKeys ...
 var StorageKeys cm.KeyBuilder
 
 // S3Storage implements the certmagic Storage interface using amazon's
@@ -36,13 +37,13 @@ var StorageKeys cm.KeyBuilder
 // for issues, please contact @securityclippy
 // S3Storage is safe to use with multiple servers behind an AWS load balancer
 // and is safe for concurrent use
-
 type S3Storage struct {
 	Path   string
 	Bucket *string
 	SVC    s3iface.S3API
 }
 
+// NewS3Storage ...
 func NewS3Storage(bucketName, awsRegion string) (*S3Storage, error) {
 	cfg := aws.NewConfig()
 	cfg.Region = aws.String(awsRegion)
@@ -51,7 +52,6 @@ func NewS3Storage(bucketName, awsRegion string) (*S3Storage, error) {
 		return &S3Storage{}, err
 	}
 	svc := s3.New(sess)
-
 	store := &S3Storage{
 		Bucket: aws.String(bucketName),
 		SVC:    svc,
@@ -81,7 +81,6 @@ func (s *S3Storage) Store(key string, value []byte) error {
 		Key:    aws.String(filename),
 		Body:   bytes.NewReader(value),
 	})
-
 	if err != nil {
 		return err
 	}
@@ -97,7 +96,6 @@ func (s *S3Storage) Load(key string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	b, err := ioutil.ReadAll(result.Body)
 	if err != nil {
 		return nil, err
@@ -123,7 +121,6 @@ func (s *S3Storage) Delete(key string) error {
 // here to fulfill the interface requirements of the List function
 func (s *S3Storage) List(prefix string, recursive bool) ([]string, error) {
 	var keys []string
-
 	prefixPath := s.Filename(prefix)
 	result, err := s.SVC.ListObjects(&s3.ListObjectsInput{
 		Bucket: s.Bucket,
@@ -137,22 +134,18 @@ func (s *S3Storage) List(prefix string, recursive bool) ([]string, error) {
 			keys = append(keys, *k.Key)
 		}
 	}
-	//
 	return keys, nil
 }
 
 // Stat returns information about key.
 func (s *S3Storage) Stat(key string) (cm.KeyInfo, error) {
-
 	result, err := s.SVC.GetObject(&s3.GetObjectInput{
 		Bucket: s.Bucket,
 		Key:    aws.String(key),
 	})
-
 	if err != nil {
 		return cm.KeyInfo{}, err
 	}
-
 	return cm.KeyInfo{
 		Key:        key,
 		Size:       *result.ContentLength,
@@ -172,25 +165,22 @@ func (s *S3Storage) Filename(key string) string {
 func (s *S3Storage) Lock(key string) error {
 	start := time.Now()
 	lockFile := s.lockFileName(key)
-
 	for {
 		err := s.createLockFile(lockFile)
 		if err == nil {
 			// got the lock, yay
 			return nil
 		}
-
 		if err.Error() != lockFileExists {
 			// unexpected error
 			fmt.Println(err)
 			return fmt.Errorf("creating lock file: %+v", err)
 
 		}
-
 		// lock file already exists
-
 		info, err := s.Stat(lockFile)
 		switch {
+
 		case s.errNoSuchKey(err):
 			// must have just been removed; try again to create it
 			continue
@@ -251,7 +241,6 @@ func (s *S3Storage) createLockFile(filename string) error {
 		Key:    aws.String(filename),
 		Body:   bytes.NewReader([]byte("lock")),
 	})
-
 	if err != nil {
 		return err
 	}
